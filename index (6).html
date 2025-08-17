@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Playlist → ZIP (YouTube & Spotify)</title>
+  <style>
+    :root{
+      --bg:#0b0f19; --panel:#121829; --muted:#93a0b0; --text:#e6eaf2; --accent:#6aa0ff; --ok:#52d273; --warn:#ffb454; --err:#ff6b6b;
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0b0f19 0%,#0d1222 100%);color:var(--text)}
+    .wrap{max-width:960px;margin:40px auto;padding:24px}
+    .card{background:var(--panel);border:1px solid rgba(255,255,255,.07);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    header{padding:24px 28px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:16px;align-items:center}
+    header h1{font-size:20px;margin:0;letter-spacing:.2px}
+    header .badge{font-size:12px;color:#0b1325;background:var(--accent);padding:4px 8px;border-radius:999px}
+    main{padding:24px 28px;display:grid;gap:18px}
+    .row{display:grid;gap:8px}
+    .row.inline{grid-template-columns:1fr 140px;gap:12px}
+    label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+    input[type="text"], input[type="password"], input[type="url"], select{width:100%;padding:12px 14px;border-radius:12px;background:#0e1426;border:1px solid rgba(255,255,255,.08);color:var(--text);outline:none}
+    input::placeholder{color:#6b7588}
+    button{appearance:none;border:0;background:var(--accent);color:#071127;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer;transition:transform .05s ease,filter .15s ease}
+    button:hover{filter:brightness(1.05)}
+    button:active{transform:translateY(1px)}
+    .btn-secondary{background:#1b233a;color:var(--text);border:1px solid rgba(255,255,255,.1)}
+    .btn-ghost{background:transparent;border:1px dashed rgba(255,255,255,.2);color:var(--text)}
+    .flex{display:flex;gap:10px;align-items:center}
+    .space-between{justify-content:space-between}
+    .muted{color:var(--muted)}
+    .hint{font-size:12px;color:var(--muted)}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{background:#0e1426;border:1px solid rgba(255,255,255,.08);color:var(--muted);padding:6px 10px;border-radius:999px;font-size:12px}
+    .grid{display:grid;gap:14px}
+    .cols-2{grid-template-columns:1fr 1fr}
+    .log{white-space:pre-wrap;background:#0b1122;border:1px solid rgba(255,255,255,.07);padding:12px;border-radius:12px;max-height:240px;overflow:auto}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+    .footer{padding:16px 28px;border-top:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .switch{position:relative;display:inline-block;width:42px;height:24px}
+    .switch input{display:none}
+    .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#25304a;transition:.2s;border-radius:999px}
+    .slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;transition:.2s;border-radius:50%}
+    input:checked + .slider{background:var(--accent)}
+    input:checked + .slider:before{transform:translateX(18px)}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c1327;border:1px solid rgba(255,255,255,.1);padding:2px 6px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap card">
+    <header>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l8.66 5v8L12 21l-8.66-5V8L12 3z" stroke="#6aa0ff" stroke-width="1.3"/></svg>
+      <h1>Playlist → ZIP (links & metadata)</h1>
+      <span class="badge">Static · GitHub Pages</span>
+    </header>
+    <main>
+      <div class="row">
+        <label for="url">Playlist URL (YouTube or Spotify)</label>
+        <input id="url" type="url" placeholder="Paste a public playlist link… (e.g. https://www.youtube.com/playlist?list=… or https://open.spotify.com/playlist/…)" />
+        <div class="chips">
+          <span class="chip">This app exports metadata + links only</span>
+          <span class="chip">No audio/video downloading</span>
+          <span class="chip">Client‑side only</span>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <section class="row">
+          <label>🔴 YouTube Data API key</label>
+          <input id="ytKey" type="text" placeholder="Your YouTube API key" />
+          <small class="hint">Required for YouTube public playlists. Create at <span class="kbd">Google Cloud → APIs → YouTube Data API v3</span>. Safe to expose for public data.</small>
+        </section>
+        <section class="row">
+          <label>🟢 Spotify Client ID (PKCE)</label>
+          <input id="spClientId" type="text" placeholder="Your Spotify Client ID" />
+          <small class="hint">Required for Spotify playlists. Uses OAuth 2.1 PKCE (no client secret). Set Redirect URI to this page’s URL.</small>
+        </section>
+      </div>
+
+      <div class="flex space-between">
+        <div class="flex" style="gap:16px">
+          <label class="flex" style="gap:8px;align-items:center">
+            <div class="switch"><input id="dlThumbs" type="checkbox"><span class="slider"></span></div>
+            <span class="hint">Include thumbnails in ZIP</span>
+          </label>
+          <label class="flex" style="gap:8px;align-items:center">
+            <div class="switch"><input id="m3u" type="checkbox" checked><span class="slider"></span></div>
+            <span class="hint">Include .m3u playlist</span>
+          </label>
+        </div>
+        <div class="flex" style="gap:10px">
+          <button class="btn-secondary" id="authSpotify">Authenticate Spotify</button>
+          <button id="go">Fetch & Build ZIP</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Activity</label>
+        <div class="log" id="log"></div>
+      </div>
+    </main>
+    <div class="footer">
+      Built for educational/personal use. Respects YouTube & Spotify Terms: exports titles, artists, IDs, and links. No media downloading.
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script>
+  // --- Utilities ---
+  const $ = sel => document.querySelector(sel);
+  const log = msg => { const el = $('#log'); el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function parsePlatform(url){
+    try{
+      const u = new URL(url);
+      if(u.hostname.includes('youtube.com')||u.hostname.includes('youtu.be')) return 'youtube';
+      if(u.hostname.includes('spotify.com')) return 'spotify';
+    }catch(e){}
+    return null;
+  }
+
+  function csvEscape(v){
+    if(v==null) return '';
+    const s = String(v);
+    if(/[",\n]/.test(s)) return '"'+s.replace(/"/g,'""')+'"';
+    return s;
+  }
+
+  async function fetchAllYouTube(playlistId, apiKey){
+    const items = [];
+    let pageToken = '';
+    do{
+      const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+      url.search = new URLSearchParams({
+        part: 'snippet,contentDetails',
+        maxResults: '50',
+        playlistId, key: apiKey, pageToken
+      }).toString();
+      const r = await fetch(url);
+      if(!r.ok){ throw new Error('YouTube API error: '+r.status+' '+(await r.text())); }
+      const data = await r.json();
+      for(const it of data.items||[]){
+        const sn = it.snippet||{};
+        items.push({
+          platform:'youtube',
+          position: sn.position,
+          title: sn.title,
+          channel: sn.videoOwnerChannelTitle || sn.channelTitle,
+          videoId: it.contentDetails?.videoId,
+          url: sn.resourceId?.videoId ? `https://www.youtube.com/watch?v=${sn.resourceId.videoId}` : null,
+          thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || sn.thumbnails?.default?.url || null,
+          publishedAt: sn.publishedAt
+        });
+      }
+      pageToken = data.nextPageToken || '';
+      log(`YouTube: fetched ${items.length} items…`);
+      await sleep(120);
+    }while(pageToken);
+    return items;
+  }
+
+  // --- Spotify PKCE OAuth ---
+  function base64urlencode(a){
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(a)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  async function sha256(str){
+    const enc = new TextEncoder().encode(str);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    return buf;
+  }
+  async function beginSpotifyPKCE(){
+    const clientId = $('#spClientId').value.trim();
+    if(!clientId) return alert('Enter your Spotify Client ID');
+    const verifier = base64urlencode(crypto.getRandomValues(new Uint8Array(32)));
+    const challenge = base64urlencode(await sha256(verifier));
+    sessionStorage.setItem('sp_pkce_verifier', verifier);
+    const redirectUri = location.origin + location.pathname; // this page
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+      scope: 'playlist-read-private playlist-read-collaborative'
+    });
+    location.href = 'https://accounts.spotify.com/authorize?'+params.toString();
+  }
+
+  async function exchangeSpotifyCodeForToken(){
+    const code = new URLSearchParams(location.search).get('code');
+    if(!code) return null;
+    const clientId = $('#spClientId').value.trim() || localStorage.getItem('sp_client_id') || '';
+    if(!clientId){
+      log('Spotify: paste your Client ID, then this page will retry token exchange…');
+      return { pending:true, code };
+    }
+    const verifier = sessionStorage.getItem('sp_pkce_verifier');
+    const redirectUri = location.origin + location.pathname;
+    const body = new URLSearchParams({
+      client_id: clientId,
+      grant_type: 'authorization_code',
+      code, redirect_uri: redirectUri,
+      code_verifier: verifier
+    });
+    const r = await fetch('https://accounts.spotify.com/api/token',{
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
+    });
+    if(!r.ok){
+      log('Spotify token error: '+r.status);
+      return null;
+    }
+    const token = await r.json();
+    history.replaceState({}, document.title, redirectUri); // clean code= from URL
+    localStorage.setItem('sp_access', JSON.stringify(token));
+    localStorage.setItem('sp_client_id', clientId);
+    log('Spotify: access token obtained.');
+    return token;
+  }
+
+  async function ensureSpotifyToken(){
+    const stored = localStorage.getItem('sp_access');
+    if(stored){
+      try{
+        const tok = JSON.parse(stored);
+        if(tok && tok.access_token) return tok;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  async function fetchAllSpotify(playlistUrl){
+    let tok = await ensureSpotifyToken();
+    if(!tok){
+      const exchanged = await exchangeSpotifyCodeForToken();
+      if(exchanged && exchanged.pending){
+        // wait for user to paste client id and click "Authenticate" again
+        throw new Error('Spotify auth pending. Click “Authenticate Spotify” after entering Client ID.');
+      }
+      tok = await ensureSpotifyToken();
+      if(!tok) throw new Error('No Spotify token. Click “Authenticate Spotify”.');
+    }
+    const headers = { Authorization: 'Bearer '+tok.access_token };
+
+    // Extract playlist ID from URL
+    const u = new URL(playlistUrl);
+    const parts = u.pathname.split('/');
+    const pid = parts.includes('playlist') ? parts[parts.indexOf('playlist')+1].split('?')[0] : null;
+    if(!pid) throw new Error('Could not parse Spotify playlist ID');
+
+    // Fetch playlist details for name
+    let meta = await fetch(`https://api.spotify.com/v1/playlists/${pid}`, { headers });
+    if(!meta.ok) throw new Error('Spotify API error (meta): '+meta.status);
+    meta = await meta.json();
+
+    const items = [];
+    let url = `https://api.spotify.com/v1/playlists/${pid}/tracks?limit=100`;
+    while(url){
+      const r = await fetch(url, { headers });
+      if(!r.ok) throw new Error('Spotify API error: '+r.status);
+      const data = await r.json();
+      for(const it of data.items||[]){
+        const t = it.track;
+        if(!t) continue;
+        items.push({
+          platform:'spotify',
+          position: items.length,
+          title: t.name,
+          artists: (t.artists||[]).map(a=>a.name).join(', '),
+          album: t.album?.name || '',
+          trackId: t.id,
+          url: t.external_urls?.spotify || '',
+          isrc: t.external_ids?.isrc || '',
+          duration_ms: t.duration_ms,
+          thumbnail: t.album?.images?.[0]?.url || ''
+        });
+      }
+      url = data.next;
+      log(`Spotify: fetched ${items.length} items…`);
+      await sleep(120);
+    }
+    return { items, playlistName: meta.name || 'Spotify Playlist' };
+  }
+
+  function youtubePlaylistIdFromUrl(u){
+    try{
+      const url = new URL(u);
+      if(url.searchParams.get('list')) return url.searchParams.get('list');
+    }catch(e){}
+    return null;
+  }
+
+  async function blobFromUrl(url){
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('Failed to fetch resource: '+r.status);
+    return await r.blob();
+  }
+
+  async function buildZip({items, playlistName, includeThumbs, includeM3U}){
+    const zip = new JSZip();
+    const safe = (s)=> (s||'').replace(/[\/:*?"<>|]/g,'_').slice(0,80) || 'playlist';
+    const folder = zip.folder(safe(playlistName));
+
+    // JSON
+    folder.file('tracks.json', JSON.stringify(items, null, 2));
+
+    // CSV
+    const headers = ['position','title','artists','channel','album','platform','id','url','isrc','duration_ms','publishedAt'];
+    const rows = [headers.join(',')].concat(items.map(it => [
+      it.position,
+      csvEscape(it.title),
+      csvEscape(it.artists||''),
+      csvEscape(it.channel||''),
+      csvEscape(it.album||''),
+      it.platform,
+      csvEscape(it.videoId||it.trackId||''),
+      csvEscape(it.url||''),
+      csvEscape(it.isrc||''),
+      it.duration_ms||'',
+      csvEscape(it.publishedAt||'')
+    ].join(',')));
+    folder.file('tracks.csv', rows.join('\n'));
+
+    // M3U
+    if(includeM3U){
+      const m3u = ['#EXTM3U'].concat(items.map(it => `#EXTINF:-1,${(it.artists?it.artists+' - ':'')}${it.title}\n${it.url}`)).join('\n');
+      folder.file('playlist.m3u', m3u);
+    }
+
+    // HTML index
+    const listHtml = `<!doctype html><meta charset="utf-8"><title>${safe(playlistName)}</title>
+      <style>body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:24px}a{text-decoration:none}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f5f7fb;text-align:left}</style>
+      <h1>${safe(playlistName)}</h1>
+      <table><thead><tr><th>#</th><th>Title</th><th>Artist/Channel</th><th>Platform</th></tr></thead><tbody>
+      ${items.map(it=>`<tr><td>${it.position+1}</td><td><a href="${it.url}" target="_blank">${(it.title||'').replace(/</g,'&lt;')}</a></td><td>${(it.artists||it.channel||'').replace(/</g,'&lt;')}</td><td>${it.platform}</td></tr>`).join('')}
+      </tbody></table>`;
+    folder.file('index.html', listHtml);
+
+    // Thumbnails (optional)
+    if(includeThumbs){
+      const imgFolder = folder.folder('thumbnails');
+      let count = 0;
+      for(const it of items){
+        if(!it.thumbnail) continue;
+        try{
+          const blob = await blobFromUrl(it.thumbnail);
+          const ext = (blob.type.split('/')[1]||'jpg').split(';')[0];
+          imgFolder.file(`${(it.position+1).toString().padStart(3,'0')}.${ext}`, blob);
+          count++;
+          if(count%10===0) log(`Downloaded ${count} thumbnails…`);
+          await sleep(80);
+        }catch(e){/*skip*/}
+      }
+      log(`Thumbnails saved: ${count}`);
+    }
+
+    const out = await zip.generateAsync({type:'blob'});
+    saveAs(out, safe(playlistName)+'.zip');
+  }
+
+  // --- Main flow ---
+  $('#authSpotify').addEventListener('click', beginSpotifyPKCE);
+
+  $('#go').addEventListener('click', async ()=>{
+    try{
+      $('#go').disabled = true; log('Starting…');
+      const url = $('#url').value.trim();
+      const platform = parsePlatform(url);
+      if(!platform) throw new Error('Unsupported URL. Paste a YouTube or Spotify playlist URL.');
+
+      let items = [], playlistName = 'Playlist';
+      if(platform==='youtube'){
+        const key = $('#ytKey').value.trim();
+        if(!key) throw new Error('Enter your YouTube API key.');
+        const pid = youtubePlaylistIdFromUrl(url);
+        if(!pid) throw new Error('Could not parse YouTube playlist ID.');
+        log('Fetching YouTube playlist items…');
+        items = await fetchAllYouTube(pid, key);
+        // Fetch playlist title
+        const metaUrl = new URL('https://www.googleapis.com/youtube/v3/playlists');
+        metaUrl.search = new URLSearchParams({ part:'snippet', id: pid, key }).toString();
+        const r = await fetch(metaUrl);
+        if(r.ok){ const d = await r.json(); playlistName = d.items?.[0]?.snippet?.title || 'YouTube Playlist'; }
+      } else if(platform==='spotify'){
+        log('Fetching Spotify playlist items…');
+        const res = await fetchAllSpotify(url);
+        items = res.items; playlistName = res.playlistName;
+      }
+
+      if(!items.length) throw new Error('No items found. Make sure the playlist is public.');
+      log(`Collected ${items.length} items. Building ZIP…`);
+      await buildZip({ items, playlistName, includeThumbs: $('#dlThumbs').checked, includeM3U: $('#m3u').checked });
+      log('Done. ✅');
+    }catch(e){
+      console.error(e); log('Error: '+e.message);
+      alert(e.message);
+    }finally{
+      $('#go').disabled = false;
+    }
+  });
+
+  // If returning from Spotify auth with code=
+  window.addEventListener('load', async ()=>{
+    const params = new URLSearchParams(location.search);
+    if(params.get('code')){
+      log('Completing Spotify authentication…');
+      const tok = await exchangeSpotifyCodeForToken();
+      if(tok && !tok.pending) log('You can now fetch Spotify playlists.');
+    }
+  });
+  </script>
+</body>
+</html>
